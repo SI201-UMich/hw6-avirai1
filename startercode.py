@@ -99,7 +99,23 @@ def update_cache(breed_ids, cache_file):
         A string: "Cached data for {percentage}% of breeds",
         where percentage = (successful_new_adds / len(breed_ids)) * 100.
     """
-    pass
+    cache = load_json(cache_file)
+    new_adds = 0
+ 
+    for breed_id in breed_ids:
+        url = f"https://dogapi.dog/api/v2/breeds/{breed_id}"
+        if url in cache:
+            continue
+        result = search_breed(breed_id)
+        if result is not None:
+            parsed, req_url = result
+            cache[req_url] = parsed
+            new_adds += 1
+ 
+    create_cache(cache, cache_file)
+ 
+    percentage = (new_adds / len(breed_ids)) * 100
+    return f"Cached data for {percentage}% of breeds"
 
 
 def get_longest_lifespan_breed(cache_file):
@@ -114,7 +130,29 @@ def get_longest_lifespan_breed(cache_file):
         A tuple (breed_name, max_lifespan_integer) for the winning breed, OR the
         string "No breeds found" if no breed in the cache has a life.max value.
     """
-    pass
+    cache = load_json(cache_file)
+ 
+    best_name = None
+    best_lifespan = None
+ 
+    for entry in cache.values():
+        try:
+            attributes = entry['data']['attributes']
+            name = attributes['name']
+            max_life = attributes['life']['max']
+            # Ensure max_life is a valid integer (not a string like "long")
+            if not isinstance(max_life, int):
+                continue
+            if best_lifespan is None or max_life > best_lifespan or \
+               (max_life == best_lifespan and name < best_name):
+                best_name = name
+                best_lifespan = max_life
+        except (KeyError, TypeError):
+            continue
+ 
+    if best_name is None:
+        return "No breeds found"
+    return (best_name, best_lifespan)
 
 
 def get_groups_above_cutoff(cutoff, cache_file):
